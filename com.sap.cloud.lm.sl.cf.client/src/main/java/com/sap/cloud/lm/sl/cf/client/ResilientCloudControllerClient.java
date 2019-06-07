@@ -231,6 +231,11 @@ public class ResilientCloudControllerClient implements CloudControllerClient {
     }
 
     @Override
+    public Map<String, Object> getServiceParameters(UUID guid) {
+        return executeWithRetry(() -> cc.getServiceParameters(guid));
+    }
+
+    @Override
     public CloudServiceInstance getServiceInstance(String service, boolean required) {
         return executeWithRetry(() -> cc.getServiceInstance(service, required));
     }
