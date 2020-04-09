@@ -28,6 +28,7 @@ import com.sap.cloud.lm.sl.cf.client.lib.domain.CloudApplicationExtended;
 import com.sap.cloud.lm.sl.cf.client.lib.domain.UploadStatusCallbackExtended;
 import com.sap.cloud.lm.sl.cf.core.helpers.ApplicationAttributes;
 import com.sap.cloud.lm.sl.cf.core.helpers.ApplicationEnvironmentUpdater;
+import com.sap.cloud.lm.sl.cf.core.helpers.ApplicationFileDigestDetector;
 import com.sap.cloud.lm.sl.cf.core.helpers.MtaArchiveElements;
 import com.sap.cloud.lm.sl.cf.core.model.SupportedParameters;
 import com.sap.cloud.lm.sl.cf.core.util.FileUtils;
@@ -36,7 +37,6 @@ import com.sap.cloud.lm.sl.cf.persistence.services.FileStorageException;
 import com.sap.cloud.lm.sl.cf.process.Messages;
 import com.sap.cloud.lm.sl.cf.process.util.ApplicationArchiveContext;
 import com.sap.cloud.lm.sl.cf.process.util.ApplicationArchiveReader;
-import com.sap.cloud.lm.sl.cf.process.util.ApplicationDigestDetector;
 import com.sap.cloud.lm.sl.cf.process.util.ApplicationStager;
 import com.sap.cloud.lm.sl.cf.process.util.ApplicationZipBuilder;
 import com.sap.cloud.lm.sl.cf.process.variables.Variables;
@@ -74,10 +74,16 @@ public class UploadAppStep extends TimeoutAsyncFlowableStep {
 
         String newApplicationDigest = getNewApplicationDigest(context, appArchiveId, fileName);
         CloudApplication cloudApp = client.getApplication(appName);
-        boolean contentChanged = detectApplicationFileDigestChanges(context, cloudApp, client, newApplicationDigest);
+        boolean contentChanged = detectApplicationFileDigestChanges(cloudApp, newApplicationDigest);
+        context.setVariable(Variables.APP_CONTENT_CHANGED, contentChanged);
+
         if (!contentChanged && isAppStagedCorrectly(context, cloudApp)) {
             getStepLogger().info(Messages.CONTENT_OF_APPLICATION_0_IS_NOT_CHANGED, appName);
             return StepPhase.DONE;
+        }
+
+        if (contentChanged) {
+            attemptToUpdateApplicationDigest(client, cloudApp, newApplicationDigest);
         }
 
         getStepLogger().debug(Messages.UPLOADING_FILE_0_FOR_APP_1, fileName, appName);
@@ -152,16 +158,10 @@ public class UploadAppStep extends TimeoutAsyncFlowableStep {
                                              getMonitorUploadStatusCallback(context, app, filePath.toFile()));
     }
 
-    private boolean detectApplicationFileDigestChanges(ProcessContext context, CloudApplication appWithUpdatedEnvironment,
-                                                       CloudControllerClient client, String newApplicationDigest) {
-        ApplicationDigestDetector digestDetector = new ApplicationDigestDetector(appWithUpdatedEnvironment);
-        String currentApplicationDigest = digestDetector.getExistingApplicationDigest();
-        boolean contentChanged = digestDetector.hasApplicationContentDigestChanged(newApplicationDigest, currentApplicationDigest);
-        if (contentChanged) {
-            attemptToUpdateApplicationDigest(client, appWithUpdatedEnvironment, newApplicationDigest);
-        }
-        setAppContentChanged(context, contentChanged);
-        return contentChanged;
+    private boolean detectApplicationFileDigestChanges(CloudApplication appWithUpdatedEnvironment, String newApplicationDigest) {
+        ApplicationFileDigestDetector digestDetector = new ApplicationFileDigestDetector(appWithUpdatedEnvironment.getEnv());
+        String currentApplicationDigest = digestDetector.detectCurrentAppFileDigest();
+        return !newApplicationDigest.equals(currentApplicationDigest);
     }
 
     private void attemptToUpdateApplicationDigest(CloudControllerClient client, CloudApplication app, String newApplicationDigest) {
@@ -169,10 +169,6 @@ public class UploadAppStep extends TimeoutAsyncFlowableStep {
                                           client).updateApplicationEnvironment(com.sap.cloud.lm.sl.cf.core.Constants.ENV_DEPLOY_ATTRIBUTES,
                                                                                com.sap.cloud.lm.sl.cf.core.Constants.ATTR_APP_CONTENT_DIGEST,
                                                                                newApplicationDigest);
-    }
-
-    private void setAppContentChanged(ProcessContext context, boolean appContentChanged) {
-        context.setVariable(Variables.APP_CONTENT_CHANGED, Boolean.toString(appContentChanged));
     }
 
     MonitorUploadStatusCallback getMonitorUploadStatusCallback(ProcessContext context, CloudApplication app, File file) {

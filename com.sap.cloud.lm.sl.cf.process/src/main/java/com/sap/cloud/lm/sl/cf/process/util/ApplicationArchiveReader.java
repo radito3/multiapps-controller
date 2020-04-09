@@ -13,11 +13,12 @@ import com.sap.cloud.lm.sl.common.SLException;
 
 @Named
 public class ApplicationArchiveReader {
-    protected static final int BUFFER_SIZE = 4 * 1024; // 4KB
+
+    private static final int BUFFER_SIZE = 4 * 1024; // 4KB
 
     public String calculateApplicationDigest(ApplicationArchiveContext applicationArchiveContext) {
         try {
-            iterateApplicationArchive(applicationArchiveContext);
+            computeArchiveDigest(applicationArchiveContext);
             return applicationArchiveContext.getApplicationDigestCalculator()
                                             .getDigest();
         } catch (IOException e) {
@@ -25,11 +26,15 @@ public class ApplicationArchiveReader {
         }
     }
 
-    private void iterateApplicationArchive(ApplicationArchiveContext applicationArchiveContext) throws IOException {
+    private void computeArchiveDigest(ApplicationArchiveContext applicationArchiveContext) throws IOException {
         String moduleFileName = applicationArchiveContext.getModuleFileName();
         ZipEntry zipEntry = getFirstZipEntry(applicationArchiveContext);
+        long maxSizeInBytes = applicationArchiveContext.getMaxSizeInBytes();
         do {
-            if (isFile(zipEntry.getName())) {
+            if (!zipEntry.isDirectory()) {
+                if (zipEntry.getSize() > maxSizeInBytes) {
+                    throw new ContentException(Messages.SIZE_OF_APP_EXCEEDS_MAX_SIZE_LIMIT, maxSizeInBytes);
+                }
                 calculateDigestFromArchive(applicationArchiveContext);
             }
         } while ((zipEntry = getNextEntryByName(moduleFileName, applicationArchiveContext)) != null);
@@ -46,18 +51,11 @@ public class ApplicationArchiveReader {
 
     protected void calculateDigestFromArchive(ApplicationArchiveContext applicationArchiveContext) throws IOException {
         byte[] buffer = new byte[BUFFER_SIZE];
-        int numberOfReadBytes = 0;
+        int read;
         ZipInputStream zipInputStream = applicationArchiveContext.getZipInputStream();
-        long maxSizeInBytes = applicationArchiveContext.getMaxSizeInBytes();
         DigestCalculator applicationDigestCalculator = applicationArchiveContext.getApplicationDigestCalculator();
-
-        while ((numberOfReadBytes = zipInputStream.read(buffer)) != -1) {
-            long currentSizeInBytes = applicationArchiveContext.getCurrentSizeInBytes();
-            if (currentSizeInBytes + numberOfReadBytes > maxSizeInBytes) {
-                throw new ContentException(Messages.SIZE_OF_APP_EXCEEDS_MAX_SIZE_LIMIT, maxSizeInBytes);
-            }
-            applicationArchiveContext.calculateCurrentSizeInBytes(numberOfReadBytes);
-            applicationDigestCalculator.updateDigest(buffer, 0, numberOfReadBytes);
+        while ((read = zipInputStream.read(buffer)) != -1) {
+            applicationDigestCalculator.updateDigest(buffer, 0, read);
         }
     }
 
@@ -75,10 +73,6 @@ public class ApplicationArchiveReader {
 
     protected void validateEntry(ZipEntry entry) {
         FileUtils.validatePath(entry.getName());
-    }
-
-    private boolean isFile(String fileName) {
-        return !FileUtils.isDirectory(fileName);
     }
 
 }

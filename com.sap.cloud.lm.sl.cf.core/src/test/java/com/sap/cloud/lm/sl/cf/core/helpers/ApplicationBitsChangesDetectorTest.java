@@ -5,13 +5,12 @@ import static org.junit.Assert.assertNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.sap.cloud.lm.sl.cf.core.Constants;
 import com.sap.cloud.lm.sl.common.util.DigestHelper;
@@ -25,12 +24,11 @@ public class ApplicationBitsChangesDetectorTest {
     private File applicationFile;
     private ApplicationFileDigestDetector detector;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         appEnv = MapUtil.asMap(Constants.ENV_DEPLOY_ATTRIBUTES, JsonUtil.toJson(new TreeMap<>()));
         detector = new ApplicationFileDigestDetector(appEnv);
-        applicationFile = Paths.get(FILE_NAME)
-                               .toFile();
+        applicationFile = new File(FILE_NAME);
     }
 
     @Test
@@ -51,6 +49,6 @@ public class ApplicationBitsChangesDetectorTest {
     }
 
     private String getTestFileDigest() throws IOException, NoSuchAlgorithmException {
-        return DigestHelper.computeFileChecksum(Paths.get(applicationFile.toURI()), "MD5");
+        return DigestHelper.computeFileChecksum(applicationFile, "MD5");
     }
 }

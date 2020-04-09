@@ -1,10 +1,13 @@
 package com.sap.cloud.lm.sl.cf.persistence.services;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,12 +19,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import javax.xml.bind.DatatypeConverter;
-
 import org.apache.commons.io.FileUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.sap.cloud.lm.sl.cf.persistence.model.FileEntry;
 import com.sap.cloud.lm.sl.cf.persistence.model.ImmutableFileEntry;
@@ -40,7 +41,7 @@ public class FileServiceFileStorageTest {
 
     private Path temporaryStorageLocation;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         this.temporaryStorageLocation = Files.createTempDirectory("testfileStorage");
         fileStorage = new FileSystemFileStorage(temporaryStorageLocation.toString());
@@ -50,7 +51,7 @@ public class FileServiceFileStorageTest {
                         .toString();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         FileUtils.deleteDirectory(temporaryStorageLocation.toFile());
     }
@@ -101,10 +102,9 @@ public class FileServiceFileStorageTest {
 
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void deleteFilesBySpaceAndNamespace() throws Exception {
-        fileStorage.deleteFilesBySpaceAndNamespace(spaceId, namespace);
-
+    @Test
+    public void deleteFilesBySpaceAndNamespace() {
+        assertThrows(UnsupportedOperationException.class, () -> fileStorage.deleteFilesBySpaceAndNamespace(spaceId, namespace));
     }
 
     @Test
@@ -137,30 +137,29 @@ public class FileServiceFileStorageTest {
     @Test
     public void processFileContent() throws Exception {
         FileEntry fileEntry = addFile(TEST_FILE_LOCATION);
-        String testFileDigest = DigestHelper.computeFileChecksum(Paths.get(TEST_FILE_LOCATION), DIGEST_METHOD)
+        String testFileDigest = DigestHelper.computeFileChecksum(new File(TEST_FILE_LOCATION), DIGEST_METHOD)
                                             .toLowerCase();
         validateFileContent(fileEntry, testFileDigest);
     }
 
-    @Test(expected = FileStorageException.class)
+    @Test
     public void testFileContentNotExisting() throws Exception {
         String fileId = "not-existing-file-id";
         String fileSpace = "not-existing-space-id";
-        String fileDigest = DigestHelper.computeFileChecksum(Paths.get(TEST_FILE_LOCATION), DIGEST_METHOD)
+        String fileDigest = DigestHelper.computeFileChecksum(new File(TEST_FILE_LOCATION), DIGEST_METHOD)
                                         .toLowerCase();
         FileEntry dummyFileEntry = ImmutableFileEntry.builder()
                                                      .id(fileId)
                                                      .space(fileSpace)
                                                      .build();
-        validateFileContent(dummyFileEntry, fileDigest);
+        assertThrows(FileStorageException.class, () -> validateFileContent(dummyFileEntry, fileDigest));
     }
 
     private void validateFileContent(FileEntry storedFile, final String expectedFileChecksum) throws FileStorageException {
         fileStorage.processFileContent(storedFile.getSpace(), storedFile.getId(), contentStream -> {
             // make a digest out of the content and compare it to the original
             final byte[] digest = calculateFileDigest(contentStream);
-            assertEquals(expectedFileChecksum, DatatypeConverter.printHexBinary(digest)
-                                                                .toLowerCase());
+            assertEquals(expectedFileChecksum, DigestHelper.digestToString(digest));
         });
     }
 

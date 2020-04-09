@@ -221,7 +221,7 @@ public class FileService {
         return ImmutableFileInfo.builder()
                                 .file(existingFile)
                                 .size(BigInteger.valueOf(existingFile.length()))
-                                .digest(DigestHelper.computeFileChecksum(existingFile.toPath(), FileUploader.DIGEST_METHOD))
+                                .digest(DigestHelper.computeFileChecksum(existingFile, FileUploader.DIGEST_METHOD))
                                 .digestAlgorithm(FileUploader.DIGEST_METHOD)
                                 .build();
     }

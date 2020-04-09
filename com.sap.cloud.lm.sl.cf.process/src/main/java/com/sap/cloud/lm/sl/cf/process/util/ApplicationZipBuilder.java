@@ -11,6 +11,7 @@ import java.util.zip.ZipOutputStream;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,14 +58,17 @@ public class ApplicationZipBuilder {
 
     private void saveAsZip(OutputStream fileOutputStream, ApplicationArchiveContext applicationArchiveContext, ZipEntry zipEntry)
         throws IOException {
+        long maxSizeInBytes = applicationArchiveContext.getMaxSizeInBytes();
         try (ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)) {
             String moduleFileName = applicationArchiveContext.getModuleFileName();
             do {
-                if (!isAlreadyUploaded(zipEntry.getName(), applicationArchiveContext) && !zipEntry.isDirectory()) {
+                if (!zipEntry.isDirectory()) {
+                    if (zipEntry.getSize() > maxSizeInBytes) {
+                        throw new ContentException(Messages.SIZE_OF_APP_EXCEEDS_MAX_SIZE_LIMIT, maxSizeInBytes);
+                    }
                     zipOutputStream.putNextEntry(createNewZipEntry(zipEntry.getName(), moduleFileName));
-                    copy(applicationArchiveContext.getZipInputStream(), zipOutputStream, applicationArchiveContext);
+                    copy(applicationArchiveContext.getZipInputStream(), zipOutputStream);
                     zipOutputStream.closeEntry();
-
                 }
             } while ((zipEntry = applicationArchiveReader.getNextEntryByName(moduleFileName, applicationArchiveContext)) != null);
         }
@@ -77,30 +81,17 @@ public class ApplicationZipBuilder {
     private void saveToFile(OutputStream fileOutputStream, ApplicationArchiveContext applicationArchiveContext, ZipEntry zipEntry)
         throws IOException {
         String moduleFileName = applicationArchiveContext.getModuleFileName();
+        long maxSizeInBytes = applicationArchiveContext.getMaxSizeInBytes();
         do {
-            if (!isAlreadyUploaded(zipEntry.getName(), applicationArchiveContext)) {
-                copy(applicationArchiveContext.getZipInputStream(), fileOutputStream, applicationArchiveContext);
+            if (zipEntry.getSize() > maxSizeInBytes) {
+                throw new ContentException(Messages.SIZE_OF_APP_EXCEEDS_MAX_SIZE_LIMIT, maxSizeInBytes);
             }
+            copy(applicationArchiveContext.getZipInputStream(), fileOutputStream);
         } while ((zipEntry = applicationArchiveReader.getNextEntryByName(moduleFileName, applicationArchiveContext)) != null);
     }
 
-    private boolean isAlreadyUploaded(String zipEntryName, ApplicationArchiveContext applicationArchiveContext) {
-        return applicationArchiveContext.getAlreadyUploadedFiles()
-                                        .contains(zipEntryName);
-    }
-
-    protected void copy(InputStream input, OutputStream output, ApplicationArchiveContext applicationArchiveContext) throws IOException {
-        byte[] buffer = new byte[BUFFER_SIZE];
-        int numberOfReadBytes = 0;
-        long maxSizeInBytes = applicationArchiveContext.getMaxSizeInBytes();
-        while ((numberOfReadBytes = input.read(buffer)) != -1) {
-            long currentSizeInBytes = applicationArchiveContext.getCurrentSizeInBytes();
-            if (currentSizeInBytes + numberOfReadBytes > maxSizeInBytes) {
-                throw new ContentException(Messages.SIZE_OF_APP_EXCEEDS_MAX_SIZE_LIMIT, maxSizeInBytes);
-            }
-            output.write(buffer, 0, numberOfReadBytes);
-            applicationArchiveContext.calculateCurrentSizeInBytes(numberOfReadBytes);
-        }
+    protected void copy(InputStream input, OutputStream output) throws IOException {
+        IOUtils.copy(input, output, BUFFER_SIZE);
     }
 
     protected Path createTempFile() throws IOException {

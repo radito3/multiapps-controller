@@ -1,10 +1,11 @@
 package com.sap.cloud.lm.sl.cf.process.util;
 
+import com.sap.cloud.lm.sl.common.util.DigestHelper;
+
 import java.security.MessageDigest;
 
-import javax.xml.bind.DatatypeConverter;
-
 public class DigestCalculator {
+
     private final MessageDigest messageDigest;
 
     public DigestCalculator(MessageDigest messageDigest) {
@@ -16,6 +17,7 @@ public class DigestCalculator {
     }
 
     public String getDigest() {
-        return DatatypeConverter.printHexBinary(messageDigest.digest());
+        return DigestHelper.digestToString(messageDigest.digest())
+                           .toUpperCase();
     }
 }

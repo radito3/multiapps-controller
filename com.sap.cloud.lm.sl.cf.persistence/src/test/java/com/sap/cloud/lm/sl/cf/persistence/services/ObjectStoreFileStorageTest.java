@@ -1,8 +1,10 @@
 package com.sap.cloud.lm.sl.cf.persistence.services;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,16 +18,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import javax.xml.bind.DatatypeConverter;
-
 import org.apache.commons.io.FileUtils;
 import org.jclouds.ContextBuilder;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.BlobStoreContext;
 import org.jclouds.blobstore.domain.Blob;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.net.MediaType;
 import com.sap.cloud.lm.sl.cf.persistence.model.FileEntry;
@@ -46,7 +46,7 @@ public class ObjectStoreFileStorageTest {
 
     private BlobStoreContext blobStoreContext;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         createBlobStoreContext();
         fileStorage = new ObjectStoreFileStorage(blobStoreContext.getBlobStore(), CONTAINER) {
@@ -68,7 +68,7 @@ public class ObjectStoreFileStorageTest {
                         .createContainerInLocation(null, CONTAINER);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         blobStoreContext.close();
     }
@@ -178,30 +178,29 @@ public class ObjectStoreFileStorageTest {
     @Test
     public void processFileContent() throws Exception {
         FileEntry fileEntry = addFile(TEST_FILE_LOCATION);
-        String testFileDigest = DigestHelper.computeFileChecksum(Paths.get(TEST_FILE_LOCATION), DIGEST_METHOD)
+        String testFileDigest = DigestHelper.computeFileChecksum(new File(TEST_FILE_LOCATION), DIGEST_METHOD)
                                             .toLowerCase();
         validateFileContent(fileEntry, testFileDigest);
     }
 
-    @Test(expected = FileStorageException.class)
+    @Test
     public void testFileContentNotExisting() throws Exception {
         String fileId = "not-existing-file-id";
         String fileSpace = "not-existing-space-id";
-        String fileDigest = DigestHelper.computeFileChecksum(Paths.get(TEST_FILE_LOCATION), DIGEST_METHOD)
+        String fileDigest = DigestHelper.computeFileChecksum(new File(TEST_FILE_LOCATION), DIGEST_METHOD)
                                         .toLowerCase();
         FileEntry dummyFileEntry = ImmutableFileEntry.builder()
                                                      .id(fileId)
                                                      .space(fileSpace)
                                                      .build();
-        validateFileContent(dummyFileEntry, fileDigest);
+        assertThrows(FileStorageException.class, () -> validateFileContent(dummyFileEntry, fileDigest));
     }
 
     private void validateFileContent(FileEntry storedFile, final String expectedFileChecksum) throws FileStorageException {
         fileStorage.processFileContent(storedFile.getSpace(), storedFile.getId(), contentStream -> {
             // make a digest out of the content and compare it to the original
             final byte[] digest = calculateFileDigest(contentStream);
-            assertEquals(expectedFileChecksum, DatatypeConverter.printHexBinary(digest)
-                                                                .toLowerCase());
+            assertEquals(expectedFileChecksum, DigestHelper.digestToString(digest));
         });
     }
 

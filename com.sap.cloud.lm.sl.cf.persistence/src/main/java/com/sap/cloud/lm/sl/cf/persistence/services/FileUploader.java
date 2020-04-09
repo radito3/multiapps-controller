@@ -12,8 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 
-import javax.xml.bind.DatatypeConverter;
-
+import com.sap.cloud.lm.sl.common.util.DigestHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +27,7 @@ public class FileUploader {
     private static final String PREFIX = "fileUpload";
     public static final String DIGEST_METHOD = "MD5";
 
-    private static final Logger logger = LoggerFactory.getLogger(FileUploader.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileUploader.class);
 
     private FileUploader() {
     }
@@ -37,12 +36,11 @@ public class FileUploader {
      * Uploads file.
      * 
      * @param is input stream
-     * @param fileUploadProcessor file upload processor
      * @return uploaded file
      * @throws FileStorageException
      */
     public static FileInfo uploadFile(InputStream is) throws FileStorageException {
-        BigInteger size = BigInteger.valueOf(0);
+        BigInteger size = BigInteger.ZERO;
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance(DIGEST_METHOD);
@@ -80,7 +78,8 @@ public class FileUploader {
     }
 
     private static String getDigestString(byte[] digest) {
-        return DatatypeConverter.printHexBinary(digest);
+        return DigestHelper.digestToString(digest)
+                           .toUpperCase();
     }
 
     public static void removeFile(FileInfo uploadedFile) {
@@ -93,7 +92,7 @@ public class FileUploader {
         try {
             Files.delete(filePath);
         } catch (IOException e) {
-            logger.warn(MessageFormat.format(Messages.FAILED_TO_DELETE_FILE, filePath), e);
+            LOGGER.warn(MessageFormat.format(Messages.FAILED_TO_DELETE_FILE, filePath), e);
         }
     }
 

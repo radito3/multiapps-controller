@@ -101,7 +101,7 @@ public class ProcessLogsPersistenceService extends DatabaseFileService {
         FileInfo localLogFileInfo = ImmutableFileInfo.builder()
                                                      .file(localLog)
                                                      .size(BigInteger.valueOf(localLog.length()))
-                                                     .digest(DigestHelper.computeFileChecksum(localLog.toPath(), DIGEST_METHOD))
+                                                     .digest(DigestHelper.computeFileChecksum(localLog, DIGEST_METHOD))
                                                      .digestAlgorithm(DIGEST_METHOD)
                                                      .build();
         return createFileEntry(space, namespace, remoteLogName, localLogFileInfo);

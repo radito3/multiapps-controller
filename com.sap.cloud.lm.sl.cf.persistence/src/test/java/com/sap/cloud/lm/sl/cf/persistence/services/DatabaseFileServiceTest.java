@@ -1,10 +1,10 @@
 package com.sap.cloud.lm.sl.cf.persistence.services;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,11 +20,9 @@ import java.text.MessageFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.xml.bind.DatatypeConverter;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
 
 import com.sap.cloud.lm.sl.cf.persistence.DataSourceWithDialect;
@@ -56,14 +54,14 @@ public class DatabaseFileServiceTest {
 
     protected DataSourceWithDialect testDataSource;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         this.testDataSource = createDataSource();
         this.fileService = createFileService(testDataSource);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         sweepFiles();
         tearDownConnection();
@@ -100,7 +98,7 @@ public class DatabaseFileServiceTest {
     public void processFileContentTest() throws Exception {
         Path expectedFile = Paths.get("src/test/resources/", PIC_RESOURCE_NAME);
         FileEntry fileEntry = addTestFile(SPACE_1, NAMESPACE_1);
-        String expectedFileDigest = DigestHelper.computeFileChecksum(expectedFile, DIGEST_METHOD)
+        String expectedFileDigest = DigestHelper.computeFileChecksum(expectedFile.toFile(), DIGEST_METHOD)
                                                 .toLowerCase();
         validateFileContent(fileEntry, expectedFileDigest);
     }
@@ -239,8 +237,7 @@ public class DatabaseFileServiceTest {
         fileService.processFileContent(storedFile.getSpace(), storedFile.getId(), contentStream -> {
             // make a digest out of the content and compare it to the original
             final byte[] digest = calculateFileDigest(contentStream);
-            assertEquals(expectedFileChecksum, DatatypeConverter.printHexBinary(digest)
-                                                                .toLowerCase());
+            assertEquals(expectedFileChecksum, DigestHelper.digestToString(digest));
         });
     }
 
